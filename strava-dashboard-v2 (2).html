@@ -509,7 +509,7 @@ const KS = {
   targetTime:    { r: 1, c: 2 },   // C2
   plannedDist:   { r: 3, c: 2 },   // C5
   actualDist:    { r: 3, c: 2 },   // C5
-  todaysAct:     { r: 41, c: 1 },
+  todaysAct:     { r: 40, c: 1 },
   aheadBehind:   { r: 5, c: 2 },   // C6
   weekPlanned:   { r: 10, c: 2 },  // C14
   weekActual:    { r: 12, c: 2 },  // C16
@@ -527,7 +527,7 @@ const KS = {
   paceZoneStart: 28,
   paceZoneCount: 6,
   // HR zones
-  hrZoneStart:   36,
+  hrZoneStart:   37,
   hrZoneCount:   5,
 };
 
@@ -676,7 +676,7 @@ function renderWeek() {
   setText('weekPctStat', isNaN(wPct) ? '--' : (wPct * 100).toFixed(0) + '%');
   const wPctNum = isNaN(wPct) ? 0 : Math.min(wPct * 100, 100);
   setText('weekPct', wPctNum.toFixed(0) + '%');
-  const weekBar = document.getElementById('weekProgBar'); if (weekBar) weekBar.style.width = wPctNum + '%';
+  document.getElementById('weekProgBar').style.width = wPctNum + '%';
 
   const cPlan = parseFloat(d(KS.cumPlanned));
   const cAct  = parseFloat(d(KS.cumActual));
@@ -689,7 +689,7 @@ function renderWeek() {
   setText('cumPctStat', isNaN(cPct) ? '--' : (cPct * 100).toFixed(0) + '%');
   const cPctNum = isNaN(cPct) ? 0 : Math.min(cPct * 100, 100);
   setText('cumPct', cPctNum.toFixed(0) + '%');
-  const cumBar = document.getElementById('cumProgBar'); if (cumBar) cumBar.style.width = cPctNum + '%';
+  document.getElementById('cumProgBar').style.width = cPctNum + '%';
 
   // Charts from Dashboard tab
   if (!dashData || !dashData.rows) return;
@@ -701,7 +701,6 @@ function renderWeek() {
   const cumPlan  = rows.map(r => parseFloat(r.c[DB.cumPlan]?.v) || 0);
   const cumAct   = rows.map(r => parseFloat(r.c[DB.cumAct]?.v) || 0);
 
-  if (document.getElementById('weeklyChart')) {
   if (weeklyChart) weeklyChart.destroy();
   weeklyChart = new Chart(document.getElementById('weeklyChart'), {
     type: 'bar',
@@ -713,7 +712,7 @@ function renderWeek() {
       ]
     },
     options: chartOpts({ stacked: false })
-  }); }
+  });
 
   if (cumChart) cumChart.destroy();
   cumChart = new Chart(document.getElementById('cumChart'), {

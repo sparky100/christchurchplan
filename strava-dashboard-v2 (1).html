@@ -196,6 +196,14 @@ nav {
 .r-card.atl::before { background: var(--amber); }
 .r-card.tsb-pos::before { background: var(--green); }
 .r-card.tsb-neg::before { background: var(--red); }
+.r-card.rag-red::before    { background: var(--red); }
+.r-card.rag-amber::before  { background: var(--amber); }
+.r-card.rag-green::before  { background: var(--green); }
+.r-card.rag-blue::before   { background: var(--blue); }
+.r-card.rag-red .r-val     { color: var(--red); }
+.r-card.rag-amber .r-val   { color: var(--amber); }
+.r-card.rag-green .r-val   { color: var(--green); }
+.r-card.rag-blue .r-val    { color: var(--blue); }
 .r-lbl {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 11px; font-weight: 600;
@@ -371,11 +379,17 @@ canvas { max-height: 200px; }
   <div class="race-hero" id="heroCard">
     <div class="days-num" id="daysVal">--</div>
     <div class="days-label">days to race</div>
+    <div class="race-meta">
+      <div class="race-meta-item">
+        <span class="race-meta-label">Target</span>
+        <span class="race-meta-val" id="targetTime">--</span>
+      </div>
+    </div>
   </div>
 
   <!-- Readiness -->
   <div class="readiness-grid">
-    <div class="r-card ctl">
+    <div class="r-card ctl" id="ctlCard">
       <span class="r-lbl">CTL</span>
       <span class="r-val" id="ctlVal">--</span>
       <span class="r-sub">fitness</span>
@@ -576,8 +590,8 @@ const KS = {
   daysToRace:    { r: 0, c: 2 },   // C1
   targetTime:    { r: 1, c: 2 },   // C2
   plannedDist:   { r: 3, c: 2 },   // C5
-  actualDist:    { r: 4, c: 2 },   // C5
-  todaysAct:     { r: 41, c: 1 },
+  actualDist:    { r: 3, c: 2 },   // C5
+  todaysAct:     { r: 40, c: 1 },
   aheadBehind:   { r: 5, c: 2 },   // C6
   weekPlanned:   { r: 10, c: 2 },  // C14
   weekActual:    { r: 12, c: 2 },  // C16
@@ -702,8 +716,31 @@ function renderToday() {
   setText('atlVal', isNaN(atl) ? '--' : Math.round(atl));
   setText('tsbVal', isNaN(tsb) ? '--' : (tsb >= 0 ? '+' : '') + tsb.toFixed(1));
 
+  // CTL: Red <3, Amber 3-5, Green 5-8, Blue 8+
+  const ctlCard = document.getElementById('ctlCard');
+  if (!isNaN(ctl)) {
+    if (ctl < 3)       ctlCard.className = 'r-card rag-red';
+    else if (ctl < 5)  ctlCard.className = 'r-card rag-amber';
+    else if (ctl < 8)  ctlCard.className = 'r-card rag-green';
+    else               ctlCard.className = 'r-card rag-blue';
+  }
+
+  // ATL: Green <3, Amber 3-8, Red 8+
+  const atlCard = document.getElementById('atlCard');
+  if (!isNaN(atl)) {
+    if (atl < 3)       atlCard.className = 'r-card rag-green';
+    else if (atl < 8)  atlCard.className = 'r-card rag-amber';
+    else               atlCard.className = 'r-card rag-red';
+  }
+
+  // TSB: Red <-6, Amber -6 to -2, Green -2 to +3, Amber >+3
   const tsbCard = document.getElementById('tsbCard');
-  tsbCard.className = 'r-card ' + (!isNaN(tsb) && tsb < 0 ? 'tsb-neg' : 'tsb-pos');
+  if (!isNaN(tsb)) {
+    if (tsb < -6)      tsbCard.className = 'r-card rag-red';
+    else if (tsb < -2) tsbCard.className = 'r-card rag-amber';
+    else if (tsb <= 3) tsbCard.className = 'r-card rag-green';
+    else               tsbCard.className = 'r-card rag-amber';
+  }
 }
 
 // ── WEEK ──
