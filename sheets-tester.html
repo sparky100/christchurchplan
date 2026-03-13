@@ -161,6 +161,11 @@ async function runTests() {
       { label: 'C14 (Week planned)',val: cell(ksTable, 13, 2) },
       { label: 'C16 (Week actual)', val: cell(ksTable, 15, 2) },
       { label: 'D16 (Cum actual)',  val: cell(ksTable, 15, 3) },
+      { label: 'CTL',  val: cell(ksTable, 8, 1) },
+      { label: 'D16 (Cum actual)',  val: cell(ksTable, 15, 3) }
+
+
+
     ];
 
     const tableHtml = `<table class="cell-table">${checks.map(c =>
