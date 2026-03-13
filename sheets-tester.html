@@ -155,12 +155,12 @@ async function runTests() {
 
     // Spot-check key cells
     const checks = [
-      { label: 'C1 (Days to race)', val: cell(ksTable, 0, 2) },
-      { label: 'C2 (Target time)',  val: cell(ksTable, 1, 2) },
-      { label: 'C5 (Planned dist)', val: cell(ksTable, 4, 2) },
-      { label: 'C14 (Week planned)',val: cell(ksTable, 13, 2) },
-      { label: 'C16 (Week actual)', val: cell(ksTable, 15, 2) },
-      { label: 'D16 (Cum actual)',  val: cell(ksTable, 15, 3) },
+      { label: 'C1 (Days to race)', val: cell(ksTable, 2, 1) },
+      { label: 'C2 (Target time)',  val: cell(ksTable, 2, 2) },
+      { label: 'C5 (Planned dist)', val: cell(ksTable, 2, 3) },
+      { label: 'C14 (Week planned)',val: cell(ksTable, 3, 1) },
+      { label: 'C16 (Week actual)', val: cell(ksTable, 3, 2) },
+      { label: 'D16 (Cum actual)',  val: cell(ksTable, 3, 3) },
       { label: 'CTL',  val: cell(ksTable, 8, 1) },
       { label: 'D16 (Cum actual)',  val: cell(ksTable, 15, 3) }
 

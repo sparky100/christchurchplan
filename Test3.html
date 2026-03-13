@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0d0d14">
-<title>Race Prep</title>
+<title>Christchurch Half Marathon</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -350,13 +350,13 @@ canvas { max-height: 200px; }
 <body>
 
 <nav>
-  <span class="nav-title">Race Prep</span>
+  <span class="nav-title" id="raceName">Christchurch Half Marathon</span>
   <button class="sync-btn" id="syncBtn" onclick="syncData()">
     <span class="spin">↻</span><span>sync</span>
   </button>
 </nav>
 
-<!-- ═══ SCREEN 1: TODAY ═══ -->
+<!-- ═══ SCREEN 1: KEY STATS ═══ -->
 <div class="screen active" id="screen-today">
 
   <div class="config-card" id="configPanel">
@@ -371,18 +371,30 @@ canvas { max-height: 200px; }
   <div class="race-hero" id="heroCard">
     <div class="days-num" id="daysVal">--</div>
     <div class="days-label">days to race</div>
-    <div class="race-meta">
-      <div class="race-meta-item">
-        <span class="race-meta-label">Target</span>
-        <span class="race-meta-val" id="targetTime">--</span>
+    
+  </div>
+
+  <!-- Today's activity -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-label">Today</span>
+    </div>
+    <div class="card-body">
+      <div class="stat-row">
+        <span class="stat-name">Activity</span>
+        <span class="stat-val" id="todaysActVal">--</span>
       </div>
-      <div class="race-meta-item">
-        <span class="race-meta-label">Plan dist</span>
-        <span class="race-meta-val" id="plannedDist">--</span>
+      <div class="stat-row">
+        <span class="stat-name">Planned distance</span>
+        <span class="stat-val"><span id="plannedDist">--</span> km</span>
       </div>
-      <div class="race-meta-item">
-        <span class="race-meta-label">Ahead/behind</span>
-        <span class="race-meta-val" id="aheadBehind">--</span>
+      <div class="stat-row">
+        <span class="stat-name">Actual distance</span>
+        <span class="stat-val"><span id="actualDistVal">--</span> km</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-name">Ahead / behind</span>
+        <span class="stat-val" id="aheadBehind">--</span>
       </div>
     </div>
   </div>
@@ -403,6 +415,46 @@ canvas { max-height: 200px; }
       <span class="r-lbl">TSB</span>
       <span class="r-val" id="tsbVal">--</span>
       <span class="r-sub">form</span>
+    </div>
+  </div>
+
+  <!-- Cumulative distance vs plan -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-label">Plan to Date</span>
+    </div>
+    <div class="card-body">
+      <div class="sparkline-row">
+        <div class="spark-info">
+          <div class="spark-title">Cumulative actual</div>
+          <div class="spark-val"><span id="cumActual">--</span> <span style="font-size:13px;color:var(--muted)">km</span></div>
+          <div class="spark-sub">of <span id="cumPlanned">--</span> km planned so far</div>
+        </div>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-track"><div class="prog-fill" id="cumProgBar" style="width:0%;background:var(--teal)"></div></div>
+        <div class="prog-labels"><span id="cumPct">0%</span><span>target</span></div>
+      </div>
+      <div style="margin-top:10px;">
+        <div class="stat-row">
+          <span class="stat-name">Ahead / behind</span>
+          <span class="stat-val" id="cumDiff">--</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-name">% complete</span>
+          <span class="stat-val" id="cumPctStat">--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cumulative chart -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-label">Cumulative distance vs plan</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="cumChart"></canvas>
     </div>
   </div>
 
@@ -440,35 +492,6 @@ canvas { max-height: 200px; }
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-header">
-      <span class="card-label">Plan to Date</span>
-    </div>
-    <div class="card-body">
-      <div class="sparkline-row">
-        <div class="spark-info">
-          <div class="spark-title">Cumulative actual</div>
-          <div class="spark-val"><span id="cumActual">--</span> <span style="font-size:13px;color:var(--muted)">km</span></div>
-          <div class="spark-sub">of <span id="cumPlanned">--</span> km planned so far</div>
-        </div>
-      </div>
-      <div class="prog-wrap">
-        <div class="prog-track"><div class="prog-fill" id="cumProgBar" style="width:0%;background:var(--teal)"></div></div>
-        <div class="prog-labels"><span id="cumPct">0%</span><span>target</span></div>
-      </div>
-      <div style="margin-top:10px;">
-        <div class="stat-row">
-          <span class="stat-name">Ahead / behind</span>
-          <span class="stat-val" id="cumDiff">--</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-name">% complete</span>
-          <span class="stat-val" id="cumPctStat">--</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Weekly mileage chart -->
   <div class="card">
     <div class="card-header">
@@ -479,15 +502,6 @@ canvas { max-height: 200px; }
     </div>
   </div>
 
-  <!-- Cumulative chart -->
-  <div class="card">
-    <div class="card-header">
-      <span class="card-label">Cumulative distance vs plan</span>
-    </div>
-    <div class="chart-wrap">
-      <canvas id="cumChart"></canvas>
-    </div>
-  </div>
 
 </div>
 
@@ -534,7 +548,7 @@ canvas { max-height: 200px; }
 <div class="bottom-nav">
   <button class="bnav-btn active" id="bnav-today" onclick="showScreen('today')">
     <span class="bnav-icon">◎</span>
-    <span class="bnav-label">Today</span>
+    <span class="bnav-label">Key Stats</span>
   </button>
   <button class="bnav-btn" id="bnav-week" onclick="showScreen('week')">
     <span class="bnav-icon">▦</span>
@@ -550,6 +564,7 @@ canvas { max-height: 200px; }
 // ═══════════════════════════════════════════
 // CONFIGURATION
 // ═══════════════════════════════════════════
+const RACE_NAME = 'Christchurch Half Marathon';
 const SHEET_ID = '1NL4pgFfkdqEvbm45EDw-nR3O9eQbFgdwvrGhgZ6sqKU';
 
 const TABS = {
@@ -560,9 +575,14 @@ const TABS = {
 // Key Stats tab — single-cell references (row, col) 0-indexed
 const KS = {
   daysToRace:    { r: 0, c: 2 },   // C1
-  targetTime:    { r: 1, c: 2 },   // C2
-  plannedDist:   { r: 3, c: 1 },   // C5
-  aheadBehind:   { r: 4, c: 1 },   // C6
+  targetTime:    { r: 3, c: 1 },   // C2
+  plannedDist:   { r: 3, c: 2 },   // C5
+  actualDist:    { r: 4, c: 2 },   // C5
+todaysAct:     { r: 40, c: 1},   // C6
+    todaysAct:     { r: 2, c: 2 },   // C6
+  todaysAct:     { r: 41, c: 1 },   // C6
+
+  aheadBehind:   { r: 5, c: 2 },   // C6
   weekPlanned:   { r: 10, c: 2 },  // C14
   weekActual:    { r: 12, c: 2 },  // C16
   weekDiff:      { r: 13, c: 2 },  // C17
@@ -571,14 +591,14 @@ const KS = {
   cumActual:     { r: 12, c: 3 },  // D16
   cumDiff:       { r: 13, c: 3 },  // D17
   cumPct:        { r: 14, c: 3 },  // D18
-  // CTL/ATL/TSB — update these rows to match your sheet
-  ctl:           { r: 8, c: 1 },   // 
-  atl:           { r: 8, c: 2 },   // 
-  tsb:           { r: 8, c: 3 },   // 
-    // Pace zones C45:D50 → rows 44-49, cols 1(B label) 2(C week) 3(D cum)
+  // CTL/ATL/TSB
+  ctl:           { r: 8, c: 1 },
+  atl:           { r: 8, c: 2 },
+  tsb:           { r: 8, c: 3 },
+  // Pace zones
   paceZoneStart: 28,
   paceZoneCount: 6,
-  // HR zones C54:D58 → rows 53-57
+  // HR zones
   hrZoneStart:   37,
   hrZoneCount:   5,
 };
@@ -667,7 +687,10 @@ function renderToday() {
   const d = v => cellVal(ksData, v.r, v.c);
 
   setText('daysVal', fmt(d(KS.daysToRace), 0));
-  setText('targetTime', d(KS.targetTime) || '--');
+  setText('raceName', RACE_NAME);
+  setText('targetTime', fmtSheetTime(d(KS.targetTime)));
+  setText('todaysActVal', d(KS.todaysAct) || '--');
+  setText('actualDistVal', d(KS.actualDist) !== null ? parseFloat(d(KS.actualDist)).toFixed(1) : '--');
   setText('plannedDist', fmt(d(KS.plannedDist), 0) + ' km');
 
   const ab = parseFloat(d(KS.aheadBehind));
@@ -681,7 +704,7 @@ function renderToday() {
 
   setText('ctlVal', isNaN(ctl) ? '--' : Math.round(ctl));
   setText('atlVal', isNaN(atl) ? '--' : Math.round(atl));
-  setText('tsbVal', isNaN(tsb) ? '--' : (tsb >= 0 ? '+' : '') + Math.round(tsb));
+  setText('tsbVal', isNaN(tsb) ? '--' : (tsb >= 0 ? '+' : '') + tsb.toFixed(1));
 
   const tsbCard = document.getElementById('tsbCard');
   tsbCard.className = 'r-card ' + (!isNaN(tsb) && tsb < 0 ? 'tsb-neg' : 'tsb-pos');
@@ -777,7 +800,7 @@ function renderZones() {
         <div class="zone-bar-wrap">
           <div class="zone-bar" style="width:${(z.val/max*100).toFixed(1)}%;background:${colors[i % colors.length]}"></div>
         </div>
-        <span class="zone-time">${fmtTime(z.val)}</span>
+        <span class="zone-time">${z.val !== null && !isNaN(z.val) ? Math.round(z.val * 100) + "%" : "--"}</span>
       </div>`).join('');
     return zones;
   }
@@ -873,6 +896,16 @@ function setDiff(id, val) {
   if (isNaN(val)) { el.textContent = '--'; el.className = 'stat-val'; return; }
   el.textContent = (val >= 0 ? '+' : '') + val.toFixed(1) + ' km';
   el.className = 'stat-val ' + (val >= 0 ? 'pos' : 'neg');
+}
+
+function fmtSheetTime(val) {
+  if (val === null || val === undefined || val === '') return '--';
+  const n = parseFloat(val);
+  if (isNaN(n)) return String(val);
+  const totalMins = Math.round(n * 1440);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return h + ':' + String(m).padStart(2, '0');
 }
 
 function fmtTime(val) {

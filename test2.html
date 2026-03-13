@@ -561,8 +561,11 @@ const TABS = {
 const KS = {
   daysToRace:    { r: 0, c: 2 },   // C1
   targetTime:    { r: 1, c: 2 },   // C2
-  plannedDist:   { r: 3, c: 1 },   // C5
-  aheadBehind:   { r: 4, c: 1 },   // C6
+  plannedDist:   { r: 3, c: 2 },   // C5
+  actualDist: { r: 3, c: 2 },   // C5
+  todaysAct:  { r: 2, c: 2 },   // C6
+  aheadBehind:   { r: 5, c: 2 },   // C6
+
   weekPlanned:   { r: 10, c: 2 },  // C14
   weekActual:    { r: 12, c: 2 },  // C16
   weekDiff:      { r: 13, c: 2 },  // C17
@@ -571,14 +574,14 @@ const KS = {
   cumActual:     { r: 12, c: 3 },  // D16
   cumDiff:       { r: 13, c: 3 },  // D17
   cumPct:        { r: 14, c: 3 },  // D18
-  // CTL/ATL/TSB — update these rows to match your sheet
-  ctl:           { r: 8, c: 1 },   // 
-  atl:           { r: 8, c: 2 },   // 
-  tsb:           { r: 8, c: 3 },   // 
-    // Pace zones C45:D50 → rows 44-49, cols 1(B label) 2(C week) 3(D cum)
+  // CTL/ATL/TSB
+  ctl:           { r: 8, c: 1 },
+  atl:           { r: 8, c: 2 },
+  tsb:           { r: 8, c: 3 },
+  // Pace zones
   paceZoneStart: 28,
   paceZoneCount: 6,
-  // HR zones C54:D58 → rows 53-57
+  // HR zones
   hrZoneStart:   37,
   hrZoneCount:   5,
 };
@@ -667,7 +670,7 @@ function renderToday() {
   const d = v => cellVal(ksData, v.r, v.c);
 
   setText('daysVal', fmt(d(KS.daysToRace), 0));
-  setText('targetTime', d(KS.targetTime) || '--');
+  setText('targetTime', fmtSheetTime(d(KS.targetTime)));
   setText('plannedDist', fmt(d(KS.plannedDist), 0) + ' km');
 
   const ab = parseFloat(d(KS.aheadBehind));
@@ -681,7 +684,7 @@ function renderToday() {
 
   setText('ctlVal', isNaN(ctl) ? '--' : Math.round(ctl));
   setText('atlVal', isNaN(atl) ? '--' : Math.round(atl));
-  setText('tsbVal', isNaN(tsb) ? '--' : (tsb >= 0 ? '+' : '') + Math.round(tsb));
+  setText('tsbVal', isNaN(tsb) ? '--' : (tsb >= 0 ? '+' : '') + tsb.toFixed(1));
 
   const tsbCard = document.getElementById('tsbCard');
   tsbCard.className = 'r-card ' + (!isNaN(tsb) && tsb < 0 ? 'tsb-neg' : 'tsb-pos');
@@ -777,7 +780,7 @@ function renderZones() {
         <div class="zone-bar-wrap">
           <div class="zone-bar" style="width:${(z.val/max*100).toFixed(1)}%;background:${colors[i % colors.length]}"></div>
         </div>
-        <span class="zone-time">${fmtTime(z.val)}</span>
+        <span class="zone-time">${z.val !== null && !isNaN(z.val) ? Math.round(z.val * 100) + "%" : "--"}</span>
       </div>`).join('');
     return zones;
   }
@@ -873,6 +876,16 @@ function setDiff(id, val) {
   if (isNaN(val)) { el.textContent = '--'; el.className = 'stat-val'; return; }
   el.textContent = (val >= 0 ? '+' : '') + val.toFixed(1) + ' km';
   el.className = 'stat-val ' + (val >= 0 ? 'pos' : 'neg');
+}
+
+function fmtSheetTime(val) {
+  if (val === null || val === undefined || val === '') return '--';
+  const n = parseFloat(val);
+  if (isNaN(n)) return String(val);
+  const totalMins = Math.round(n * 1440);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return h + ':' + String(m).padStart(2, '0');
 }
 
 function fmtTime(val) {
