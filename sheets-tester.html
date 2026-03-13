@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sheets Connectivity Tester</title>
+<style>
+  body { font-family: monospace; max-width: 680px; margin: 40px auto; padding: 20px; background: #0f0f17; color: #e0e0f0; }
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: #fff; }
+  p  { font-size: 12px; color: #6b6b85; margin-bottom: 24px; }
+  label { font-size: 12px; color: #9898b0; display: block; margin-bottom: 6px; }
+  input, select {
+    width: 100%; padding: 10px 12px; margin-bottom: 14px;
+    background: #1a1a2a; border: 1px solid #2a2a3f; border-radius: 8px;
+    color: #e0e0f0; font-family: monospace; font-size: 13px;
+    outline: none; box-sizing: border-box;
+  }
+  input:focus, select:focus { border-color: #4a9eff; }
+  button {
+    width: 100%; padding: 12px; border-radius: 8px; border: none;
+    background: #4a9eff; color: #fff; font-family: monospace;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+  }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #results { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+
+  .result-block {
+    background: #13131f; border: 1px solid #2a2a3f; border-radius: 10px;
+    overflow: hidden;
+  }
+  .result-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-bottom: 1px solid #2a2a3f;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok      { background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,0.5); }
+  .dot.fail    { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,0.5); }
+  .dot.pending { background: #f5a623; animation: pulse 1s ease infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .result-title { font-size: 13px; font-weight: 600; }
+  .result-body { padding: 10px 14px; font-size: 12px; color: #9898b0; line-height: 1.7; }
+  .result-body.ok   { color: #86efac; }
+  .result-body.fail { color: #fca5a5; }
+
+  .cell-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .cell-table td { padding: 4px 8px; font-size: 12px; border-bottom: 1px solid #1a1a2a; }
+  .cell-table tr:last-child td { border-bottom: none; }
+  .cell-table td:first-child { color: #6b6b85; width: 80px; }
+  .cell-table td:last-child  { color: #e0e0f0; }
+</style>
+</head>
+<body>
+
+<h1>Google Sheets — Connectivity Tester</h1>
+<p>Paste your Sheet ID and tab names to verify the dashboard can read your data.</p>
+
+<label>Sheet ID</label>
+<input id="sheetId" type="text" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" />
+
+<label>Key Stats tab name</label>
+<input id="ksTab" type="text" value="Key Stats" />
+
+<label>Dashboard tab name</label>
+<input id="dbTab" type="text" value="dashboard" />
+
+<button id="testBtn" onclick="runTests()">Run connectivity test</button>
+
+<div id="results"></div>
+
+<script>
+async function fetchSheet(sheetId, tabName) {
+  // First check the sheet itself is accessible (no tab specified)
+  const baseUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+  let baseRes;
+  try {
+    baseRes = await fetch(baseUrl);
+  } catch(e) {
+    throw { type: 'network', message: 'Network error — check your internet connection.' };
+  }
+
+  if (baseRes.status === 404) throw { type: 'sheet', message: `Sheet not found. Double-check the Sheet ID — it should be the long string from the URL between /d/ and /edit.` };
+  if (baseRes.status === 401 || baseRes.status === 403) throw { type: 'access', message: `Access denied. The sheet is not publicly shared. Go to Share → Anyone with the link → Viewer.` };
+  if (!baseRes.ok) throw { type: 'sheet', message: `Could not reach the sheet (HTTP ${baseRes.status}). Check the Sheet ID is correct.` };
+
+  const baseText = await baseRes.text();
+  if (!baseText.match(/google\.visualization\.Query\.setResponse/)) {
+    throw { type: 'access', message: `Sheet is not publicly accessible. Go to Share → Anyone with the link → Viewer.` };
+  }
+
+  // Now fetch the specific tab
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/);
+  if (!match) throw { type: 'access', message: `Unexpected response. The sheet may have been made private after the first check.` };
+
+  const json = JSON.parse(match[1]);
+  if (json.status === 'error') {
+    const msg = json.errors?.[0]?.detailed_message || '';
+    if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('sheet')) {
+      throw { type: 'tab', message: `Tab "${tabName}" not found. Check the tab name exactly as it appears at the bottom of your Google Sheet — it is case-sensitive.` };
+    }
+    throw { type: 'tab', message: `Tab error: ${msg || 'unknown error'}` };
+  }
+
+  // gviz returns the first tab silently if the tab name is wrong — detect by checking if row count is suspiciously low
+  return json.table;
+}
+
+function cell(table, row, col) {
+  try { return table.rows[row]?.c[col]?.v ?? null; } catch { return null; }
+}
+
+function addResult(id, title) {
+  const div = document.createElement('div');
+  div.className = 'result-block';
+  div.id = 'rb-' + id;
+  div.innerHTML = `
+    <div class="result-header">
+      <div class="dot pending" id="dot-${id}"></div>
+      <span class="result-title">${title}</span>
+    </div>
+    <div class="result-body" id="body-${id}">Testing...</div>`;
+  document.getElementById('results').appendChild(div);
+}
+
+function setResult(id, ok, html) {
+  document.getElementById('dot-' + id).className = 'dot ' + (ok ? 'ok' : 'fail');
+  const body = document.getElementById('body-' + id);
+  body.className = 'result-body ' + (ok ? 'ok' : 'fail');
+  body.innerHTML = html;
+}
+
+async function runTests() {
+  const sheetId = document.getElementById('sheetId').value.trim();
+  const ksTab   = document.getElementById('ksTab').value.trim();
+  const dbTab   = document.getElementById('dbTab').value.trim();
+
+  if (!sheetId) { alert('Please enter a Sheet ID'); return; }
+
+  const btn = document.getElementById('testBtn');
+  btn.disabled = true;
+  btn.textContent = 'Testing...';
+  document.getElementById('results').innerHTML = '';
+
+  // Test 1: Key Stats tab
+  addResult('ks', `Tab: "${ksTab}"`);
+  let ksTable = null;
+  try {
+    ksTable = await fetchSheet(sheetId, ksTab);
+    const rows = ksTable.rows?.length ?? 0;
+    const cols = ksTable.cols?.length ?? 0;
+
+    // Spot-check key cells
+    const checks = [
+      { label: 'C1 (Days to race)', val: cell(ksTable, 0, 2) },
+      { label: 'C2 (Target time)',  val: cell(ksTable, 1, 2) },
+      { label: 'C5 (Planned dist)', val: cell(ksTable, 4, 2) },
+      { label: 'C14 (Week planned)',val: cell(ksTable, 13, 2) },
+      { label: 'C16 (Week actual)', val: cell(ksTable, 15, 2) },
+      { label: 'D16 (Cum actual)',  val: cell(ksTable, 15, 3) },
+    ];
+
+    const tableHtml = `<table class="cell-table">${checks.map(c =>
+      `<tr><td>${c.label}</td><td>${c.val !== null ? c.val : '<span style="color:#6b6b85">empty</span>'}</td></tr>`
+    ).join('')}</table>`;
+
+    setResult('ks', true, `Connected — ${rows} rows × ${cols} cols${tableHtml}`);
+  } catch(e) {
+    const icon = e.type === 'access' ? '[locked]' : e.type === 'sheet' ? '[not found]' : e.type === 'tab' ? '[wrong tab]' : '[error]';
+    setResult('ks', false, icon + ' ' + (e.message || String(e)));
+  }
+
+  // Test 2: Dashboard tab
+  addResult('db', `Tab: "${dbTab}"`);
+  let dbTable = null;
+  try {
+    dbTable = await fetchSheet(sheetId, dbTab);
+    const rows = dbTable.rows?.filter(r => r?.c?.[0]?.v != null) ?? [];
+
+    const preview = rows.slice(0, 4).map(r => {
+      const w    = r.c[0]?.v ?? '';
+      const plan = r.c[2]?.v ?? '';
+      const act  = r.c[4]?.v ?? '';
+      const cP   = r.c[7]?.v ?? '';
+      const cA   = r.c[8]?.v ?? '';
+      return `<tr><td>${w}</td><td>${plan}</td><td>${act}</td><td>${cP}</td><td>${cA}</td></tr>`;
+    }).join('');
+
+    const tableHtml = `
+      <table class="cell-table">
+        <tr><td style="color:#4a9eff">Week</td><td style="color:#4a9eff">Plan km</td><td style="color:#4a9eff">Act km</td><td style="color:#4a9eff">Cum plan</td><td style="color:#4a9eff">Cum act</td></tr>
+        ${preview}
+      </table>`;
+
+    setResult('db', true, `Connected — ${rows.length} data rows found${tableHtml}`);
+  } catch(e) {
+    const icon2 = e.type === 'access' ? '[locked]' : e.type === 'sheet' ? '[not found]' : e.type === 'tab' ? '[wrong tab]' : '[error]';
+    setResult('db', false, icon2 + ' ' + (e.message || String(e)));
+  }
+
+  // Test 3: Zone data
+  addResult('zones', 'Zone data (Key Stats C45:D58)');
+  if (ksTable) {
+    try {
+      const paceZones = [];
+      for (let i = 44; i <= 49; i++) {
+        const lbl = cell(ksTable, i, 1);
+        const wk  = cell(ksTable, i, 2);
+        if (lbl || wk) paceZones.push({ lbl: lbl ?? '?', wk: wk ?? 0 });
+      }
+      const hrZones = [];
+      for (let i = 53; i <= 57; i++) {
+        const lbl = cell(ksTable, i, 1);
+        const wk  = cell(ksTable, i, 2);
+        if (lbl || wk) hrZones.push({ lbl: lbl ?? '?', wk: wk ?? 0 });
+      }
+
+      if (!paceZones.length && !hrZones.length) {
+        setResult('zones', false, 'No zone data found at rows 45–58. Check your row numbers in the config.');
+      } else {
+        const html = `
+          <div style="margin-bottom:6px;color:#9898b0">Pace zones (${paceZones.length} found):</div>
+          <table class="cell-table">${paceZones.map(z => `<tr><td>${z.lbl}</td><td>${z.wk}</td></tr>`).join('')}</table>
+          <div style="margin:8px 0 6px;color:#9898b0">HR zones (${hrZones.length} found):</div>
+          <table class="cell-table">${hrZones.map(z => `<tr><td>${z.lbl}</td><td>${z.wk}</td></tr>`).join('')}</table>`;
+        setResult('zones', true, html);
+      }
+    } catch(e) {
+      const icon3 = e.type === 'access' ? '[locked]' : e.type === 'tab' ? '[wrong tab]' : '[error]';
+      setResult('zones', false, icon3 + ' ' + (e.message || String(e)));
+    }
+  } else {
+    setResult('zones', false, 'Skipped — Key Stats tab failed to load');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Run connectivity test';
+}
+</script>
+</body>
+</html>
