@@ -314,6 +314,7 @@ canvas { max-height: 200px; }
   </button>
 </nav>
 
+<!-- ═══ SCREEN 1: KEY STATS ═══ -->
 <div class="screen active" id="screen-today">
   <div class="error-card" id="errorCard"></div>
   <div class="race-hero">
@@ -380,6 +381,7 @@ canvas { max-height: 200px; }
   </div>
 </div>
 
+<!-- ═══ SCREEN 2: ZONES ═══ -->
 <div class="screen" id="screen-zones">
   <div class="card">
     <div class="card-header">
@@ -409,6 +411,7 @@ canvas { max-height: 200px; }
   </div>
 </div>
 
+<!-- ═══ SCREEN 3: ANALYSIS ═══ -->
 <div class="screen" id="screen-analysis">
   <div class="card">
     <div class="card-header">
@@ -442,6 +445,7 @@ canvas { max-height: 200px; }
 </div>
 
 
+<!-- ═══ SCREEN 4: PLAN ═══ -->
 <div class="screen" id="screen-plan">
   <div class="card">
     <div class="card-header">
@@ -454,11 +458,6 @@ canvas { max-height: 200px; }
     <div class="card-body" id="planWeekList" style="padding-top:4px;">
       <div style="color:var(--muted);font-size:13px;">Loading...</div>
     </div>
-    <div id="showAllContainer" style="padding: 0 16px 14px; display: none;">
-      <button class="sync-btn" style="width: 100%; justify-content: center; margin:0;" onclick="togglePlanList()">
-        <span id="toggleBtnText">Show Full Plan</span>
-      </button>
-    </div>
   </div>
   <div class="card">
     <div class="card-header"><span class="card-label">This Week</span></div>
@@ -468,6 +467,7 @@ canvas { max-height: 200px; }
   </div>
 </div>
 
+<!-- Bottom nav -->
 <div class="bottom-nav">
   <button class="bnav-btn active" id="bnav-today"    onclick="showScreen('today')">
     <span class="bnav-icon">&#9678;</span>
@@ -492,9 +492,8 @@ const SUPABASE_URL      = 'https://xakqcssapdiatwrmnjop.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhha3Fjc3NhcGRpYXR3cm1uam9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MTk0OTksImV4cCI6MjA4OTM5NTQ5OX0.Vu4EaqxL9YGm8VtUA2O35YN3utAl7cw0bfrSQUATUYw';
 
 let dailyStats = null, weeklyChart = null, zoneStats = null, analysis = null, weeklyPlan = null, thisWeekSessions = null;
-let cumChartInst = null, hrChartInst = null, paceChartInst = null, planChartInst = null;
+let cumChartInst = null, hrChartInst = null, paceChartInst = null;
 let zoneMode = { hr: 'week', pace: 'week' };
-let showingAllWeeks = false;
 
 async function sbGet(path) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -520,29 +519,23 @@ async function syncData() {
   btn.classList.add('syncing');
   hideError();
   try {
-    // Calculate local today to avoid UTC timezone shifts
-    const localToday = new Date().toLocaleDateString('en-CA'); 
-
     const [ds, wc, zs, an, wp, tw] = await Promise.all([
       sbGet('v_daily_stats?limit=1'),
       sbGet('v_weekly_chart'),
       sbGet('v_zone_stats?limit=1'),
       sbGet('analysis_summary?order=created_at.desc&limit=1'),
-      sbGet('v_weekly_plan?limit=40'),
-      // Fetch 7 sessions starting from today
-      sbGet(`training_plan?date=gte.${localToday}&limit=7&order=date.asc`)
+      sbGet('v_weekly_plan?limit=16'),
+      sbGet('training_plan?date=gte.' + mondayOfWeek() + '&date=lte.' + sundayOfWeek() + '&order=date.asc')
     ]);
-
     dailyStats       = ds[0]  || null;
     weeklyChart      = wc     || [];
     zoneStats        = zs[0]  || null;
     analysis         = an[0]  || null;
     weeklyPlan       = wp     || [];
     thisWeekSessions = tw     || [];
-    
     renderAll();
   } catch(e) {
-    showError('Could not load data: ' + e.message);
+    showError('Could not load data from Supabase: ' + e.message);
     console.error(e);
   }
   btn.classList.remove('syncing');
@@ -722,6 +715,8 @@ function donutOpts() {
 // ═══════════════════════════════════════════
 // PLAN SCREEN
 // ═══════════════════════════════════════════
+let planChartInst = null;
+
 function mondayOfWeek(d) {
   const dt = d ? new Date(d) : new Date();
   const day = dt.getDay() || 7;
@@ -743,7 +738,6 @@ function renderPlan() {
 
   setText('planEventLabel', weeklyPlan[0]?.event_name || '');
 
-  // 1. CHART: Show full data to the end
   const labels    = weeklyPlan.map(w => w.week_label || w.week_commencing);
   const kmData    = weeklyPlan.map(w => parseFloat(w.total_km) || 0);
   const barColors = weeklyPlan.map(w => {
@@ -795,26 +789,9 @@ function renderPlan() {
     }
   });
 
-  // 2. LIST: Initial render with focus logic
-  renderPlanList();
-  
-  // Show toggle button if plan is long
-  const showAllBtn = document.getElementById('showAllContainer');
-  showAllBtn.style.display = weeklyPlan.length > 4 ? 'block' : 'none';
-
-  // 3. This week sessions
-  renderThisWeekSessions();
-}
-
-function renderPlanList() {
+  // Week list
   const list = document.getElementById('planWeekList');
-  const thisMonday = mondayOfWeek();
-  const maxKm = Math.max(...weeklyPlan.map(w => parseFloat(w.total_km) || 0), 1);
-  
-  // Slice to next 4 weeks unless 'showingAllWeeks' is true
-  const displayData = showingAllWeeks ? weeklyPlan : weeklyPlan.slice(0, 4);
-
-  list.innerHTML = displayData.map(w => {
+  list.innerHTML = weeklyPlan.map(w => {
     const km     = parseFloat(w.total_km) || 0;
     const pct    = (km / maxKm * 100).toFixed(1);
     const isThis = w.week_commencing === thisMonday;
@@ -832,15 +809,8 @@ function renderPlanList() {
         <span class="plan-week-km">${Math.round(km)} km</span>
       </div>`;
   }).join('');
-}
 
-function togglePlanList() {
-  showingAllWeeks = !showingAllWeeks;
-  document.getElementById('toggleBtnText').textContent = showingAllWeeks ? 'Show Less' : 'Show Full Plan';
-  renderPlanList();
-}
-
-function renderThisWeekSessions() {
+  // This week sessions
   const sessionList = document.getElementById('thisWeekSessions');
   if (!thisWeekSessions || !thisWeekSessions.length) {
     sessionList.innerHTML = '<div style="color:var(--muted);font-size:13px;">No sessions this week</div>';
@@ -892,11 +862,10 @@ function setDiff(id, val) {
 }
 function showError(msg) {
   const el = document.getElementById('errorCard');
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  el.textContent = msg; el.style.display = 'block';
 }
 function hideError() {
-  const el = document.getElementById('errorCard');
-  if (el) el.style.display = 'none';
+  document.getElementById('errorCard').style.display = 'none';
 }
 
 syncData();
