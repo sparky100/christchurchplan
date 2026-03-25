@@ -566,11 +566,13 @@ function render14DayChart() {
   if (!ctx || !fourteenDayData || !fourteenDayData.length) return;
   
   const labels = fourteenDayData.map(d => {
-    const dt = new Date(d.activity_date);
+    // Matches the "date" property in your Supabase JSON
+    const dt = new Date(d.date);
     return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   });
 
   if (fourteenDayChartInst) fourteenDayChartInst.destroy();
+  
   fourteenDayChartInst = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -595,15 +597,52 @@ function render14DayChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: { 
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(20, 20, 31, 0.9)',
+          titleFont: { family: 'Barlow Condensed', size: 13 },
+          bodyFont: { family: 'Barlow', size: 12 },
+          padding: 10,
+          cornerRadius: 8,
+          displayColors: true,
+          callbacks: {
+            // Fixes the "Invalid Date" issue by using the axis label directly
+            title: function(context) {
+              return context[0].label;
+            },
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += context.parsed.y.toFixed(2) + ' km';
+              }
+              return label;
+            }
+          }
+        }
+      },
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#6b6b85', font: { size: 10, family: 'Barlow Condensed' } } },
-        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6b85', font: { size: 10 } } }
+        x: { 
+          grid: { display: false }, 
+          ticks: { color: '#6b6b85', font: { size: 10, family: 'Barlow Condensed' } } 
+        },
+        y: { 
+          beginAtZero: true, 
+          grid: { color: 'rgba(255,255,255,0.05)' }, 
+          ticks: { color: '#6b6b85', font: { size: 10 } } 
+        }
       }
     }
   });
 }
-
 
 function renderKeyStats() {
   if (!dailyStats) return;
