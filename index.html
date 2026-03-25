@@ -366,10 +366,6 @@ canvas { max-height: 200px; }
         <span class="stat-name">Actual distance</span>
         <span class="stat-val"><span id="todayActual">--</span> km</span>
       </div>
-      <div class="stat-row">
-        <span class="stat-name">Ahead / behind</span>
-        <span class="stat-val" id="todayDiff">--</span>
-      </div>
     </div>
   </div>
   <div class="card">
@@ -378,6 +374,12 @@ canvas { max-height: 200px; }
       <canvas id="cumChart"></canvas>
     </div>
   </div>
+  <div class="card">
+  <div class="card-header"><span class="card-label">Last 14 Days (km)</span></div>
+  <div class="chart-wrap">
+    <canvas id="fourteenDayChart"></canvas>
+  </div>
+</div>
 </div>
 
 <div class="screen" id="screen-zones">
@@ -445,7 +447,7 @@ canvas { max-height: 200px; }
 <div class="screen" id="screen-plan">
   <div class="card">
     <div class="card-header">
-      <span class="card-label">Upcoming Weeks</span>
+      <span class="card-label">Upcoming Weeks Planned Distance</span>
       <span class="card-label" id="planEventLabel" style="color:var(--blue);letter-spacing:0;text-transform:none;font-size:11px;"></span>
     </div>
     <div class="chart-wrap" style="padding-bottom:8px;">
@@ -461,7 +463,7 @@ canvas { max-height: 200px; }
     </div>
   </div>
   <div class="card">
-    <div class="card-header"><span class="card-label">This Week</span></div>
+    <div class="card-header"><span class="card-label">This Week's Sessions</span></div>
     <div class="card-body" id="thisWeekSessions">
       <div style="color:var(--muted);font-size:13px;">Loading...</div>
     </div>
@@ -491,8 +493,10 @@ canvas { max-height: 200px; }
 const SUPABASE_URL      = 'https://xakqcssapdiatwrmnjop.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhha3Fjc3NhcGRpYXR3cm1uam9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MTk0OTksImV4cCI6MjA4OTM5NTQ5OX0.Vu4EaqxL9YGm8VtUA2O35YN3utAl7cw0bfrSQUATUYw';
 
-let dailyStats = null, weeklyChart = null, zoneStats = null, analysis = null, weeklyPlan = null, thisWeekSessions = null;
+
+let dailyStats = null, weeklyChart = null, zoneStats = null, analysis = null, weeklyPlan = null, thisWeekSessions = null, fourteenDayData = [];
 let cumChartInst = null, hrChartInst = null, paceChartInst = null, planChartInst = null;
+let fourteenDayChartInst = null;
 let zoneMode = { hr: 'week', pace: 'week' };
 let showingAllWeeks = false;
 
@@ -523,23 +527,23 @@ async function syncData() {
     // Calculate local today to avoid UTC timezone shifts
     const localToday = new Date().toLocaleDateString('en-CA'); 
 
-    const [ds, wc, zs, an, wp, tw] = await Promise.all([
-      sbGet('v_daily_stats?limit=1'),
-      sbGet('v_weekly_chart'),
-      sbGet('v_zone_stats?limit=1'),
-      sbGet('analysis_summary?order=created_at.desc&limit=1'),
-      sbGet('v_weekly_plan?limit=40'),
-      // Fetch 7 sessions starting from today
-      sbGet(`training_plan?date=gte.${localToday}&limit=7&order=date.asc`)
-    ]);
-
+const [ds, wc, zs, an, wp, tw, fd] = await Promise.all([
+  sbGet('v_daily_stats?limit=1'),
+  sbGet('v_weekly_chart'),
+  sbGet('v_zone_stats?limit=1'),
+  sbGet('analysis_summary?order=created_at.desc&limit=1'),
+  sbGet('v_weekly_plan?limit=40'),
+  sbGet(`training_plan?date=gte.${localToday}&limit=7&order=date.asc`),
+  sbGet('v_last_14_days_comparison') // <--- Add this
+]);
     dailyStats       = ds[0]  || null;
     weeklyChart      = wc     || [];
     zoneStats        = zs[0]  || null;
     analysis         = an[0]  || null;
     weeklyPlan       = wp     || [];
     thisWeekSessions = tw     || [];
-    
+    fourteenDayData  = fd     || null;
+
     renderAll();
   } catch(e) {
     showError('Could not load data: ' + e.message);
@@ -551,10 +555,55 @@ async function syncData() {
 function renderAll() {
   renderKeyStats();
   renderCumChart();
+  render14DayChart();
   renderZones();
   renderAnalysis();
-  renderPlan();
+  renderPlan(); 
 }
+
+function render14DayChart() {
+  const ctx = document.getElementById('fourteenDayChart');
+  if (!ctx || !fourteenDayData || !fourteenDayData.length) return;
+  
+  const labels = fourteenDayData.map(d => {
+    const dt = new Date(d.activity_date);
+    return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  });
+
+  if (fourteenDayChartInst) fourteenDayChartInst.destroy();
+  fourteenDayChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Plan',
+          data: fourteenDayData.map(d => d.planned_km),
+          backgroundColor: 'rgba(74, 158, 255, 0.2)',
+          borderColor: 'rgba(74, 158, 255, 0.5)',
+          borderWidth: 1,
+          borderRadius: 3
+        },
+        {
+          label: 'Actual',
+          data: fourteenDayData.map(d => d.actual_km),
+          backgroundColor: '#00f2ff', // Teal
+          borderRadius: 3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#6b6b85', font: { size: 10, family: 'Barlow Condensed' } } },
+        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b6b85', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
 
 function renderKeyStats() {
   if (!dailyStats) return;
@@ -898,6 +947,7 @@ function hideError() {
   const el = document.getElementById('errorCard');
   if (el) el.style.display = 'none';
 }
+
 
 syncData();
 </script>
